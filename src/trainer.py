@@ -153,7 +153,7 @@ def train() -> None:
         save_steps=train_config.save_steps,
         save_total_limit=train_config.save_total_limit,
         load_best_model_at_end=True,
-        best_model_metric="eval_loss",
+        metric_for_best_model="eval_loss",
         greater_is_better=False,
 
         # ----- PRECISION -----
