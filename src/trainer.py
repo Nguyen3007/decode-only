@@ -186,7 +186,7 @@ def train():
         # ----- PRECISION -----
         fp16=train_config.fp16,
         bf16=train_config.bf16,
-        max_grad_norm=train_config.max_grad_norm,
+
         # ----- REGULARIZATION -----
         label_smoothing_factor=0.05,
         gradient_checkpointing=True,
