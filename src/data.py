@@ -48,7 +48,24 @@ def load_vihealthqa(cache_dir: Optional[str] = None) -> DatasetDict:
 
     return ds
 
+def format_example(question: str, answer: str = None):
+    """
+    Tạo prompt chuẩn cho decoder-only, dùng chung cho train và inference.
 
+    Nếu answer=None → chỉ tạo prompt câu hỏi (cho generate).
+    Nếu answer có giá trị → tạo prompt câu hỏi + câu trả lời (cho supervision).
+    """
+
+    prompt = (
+        "### Câu hỏi:\n"
+        f"{question.strip()}\n\n"
+        "### Trả lời:\n"
+    )
+
+    if answer is not None:
+        prompt += answer.strip()
+
+    return prompt
 def main() -> None:
     ds = load_vihealthqa()
     print("\n✅ Loaded ViHealthQA from local CSV successfully!")
