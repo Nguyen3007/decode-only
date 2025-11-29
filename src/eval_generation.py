@@ -12,15 +12,34 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Device:", device)
 
-    # 1) Load tokenizer từ model gốc, model từ checkpoint fine-tuned
-    print("🔹 Loading fine-tuned model from", train_config.output_dir)
+    # 1) Xác định thư mục checkpoint mới nhất
+    ckpt_root = Path(train_config.output_dir)
+    assert ckpt_root.exists(), f"Output dir not found: {ckpt_root}"
+
+    # Tìm các folder kiểu checkpoint-*
+    ckpt_dirs = sorted(
+        [p for p in ckpt_root.iterdir() if p.is_dir() and p.name.startswith("checkpoint-")]
+    )
+
+    if not ckpt_dirs:
+        raise RuntimeError(
+            f"Không tìm thấy checkpoint nào trong {ckpt_root}. "
+            f"Hãy kiểm tra lại bạn đã train xong chưa."
+        )
+
+    best_ckpt_dir = ckpt_dirs[-1]  # lấy checkpoint mới nhất
+    print("🔹 Loading fine-tuned model from", best_ckpt_dir)
+
+    # 2) Load tokenizer từ model gốc
+    from transformers import AutoTokenizer, AutoModelForCausalLM
 
     tokenizer = AutoTokenizer.from_pretrained(train_config.model_name)
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
+    # 3) Load model từ checkpoint fine-tuned
     model = AutoModelForCausalLM.from_pretrained(
-        train_config.output_dir,
+        str(best_ckpt_dir),
         torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32,
     ).to(device)
 
