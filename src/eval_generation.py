@@ -12,9 +12,13 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("Device:", device)
 
-    # 1) Load best checkpoint
+    # 1) Load tokenizer từ model gốc, model từ checkpoint fine-tuned
     print("🔹 Loading fine-tuned model from", train_config.output_dir)
-    tokenizer = AutoTokenizer.from_pretrained(train_config.output_dir)
+
+    tokenizer = AutoTokenizer.from_pretrained(train_config.model_name)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
     model = AutoModelForCausalLM.from_pretrained(
         train_config.output_dir,
         torch_dtype=torch.bfloat16 if device == "cuda" else torch.float32,
