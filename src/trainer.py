@@ -22,6 +22,7 @@ from .data import load_vihealthqa
 def get_tokenizer_and_model():
     """
     Load tokenizer + model decoder-only (Qwen…) cho bài ViHealthQA.
+    Tối ưu cho GPU 16GB (RTX 5080) bằng cách dùng fp16.
     """
     print(f"🔹 Loading tokenizer & model: {train_config.model_name}")
     tokenizer = AutoTokenizer.from_pretrained(train_config.model_name)
@@ -32,12 +33,11 @@ def get_tokenizer_and_model():
 
     model = AutoModelForCausalLM.from_pretrained(
         train_config.model_name,
-        torch_dtype="auto",  # để transformers tự chọn (float16 / bfloat16 nếu có)
+        torch_dtype=torch.float16,  # fp16 cho đỡ tốn VRAM
+        device_map=None,            # Trainer sẽ tự move sang GPU
     )
 
-    # Nếu cần, resize embedding nếu vocab thay đổi
     model.resize_token_embeddings(len(tokenizer))
-
     return tokenizer, model
 
 
@@ -137,6 +137,20 @@ def train():
 
     # 2) Load tokenizer + model
     tokenizer, model = get_tokenizer_and_model()
+    # ----- TỐI ƯU MEMORY & REGULARIZATION CHO 16GB -----
+    # Cho phép gradient checkpointing để giảm VRAM
+    if hasattr(model, "gradient_checkpointing_enable"):
+        model.gradient_checkpointing_enable()
+    if hasattr(model.config, "use_cache"):
+        model.config.use_cache = False  # bắt buộc khi dùng gradient checkpointing
+
+    # Thêm dropout nhẹ để giảm overfit
+    if hasattr(model.config, "dropout"):
+        model.config.dropout = 0.1
+    if hasattr(model.config, "hidden_dropout"):
+        model.config.hidden_dropout = 0.1
+    if hasattr(model.config, "attention_dropout"):
+        model.config.attention_dropout = 0.1
 
     # 3) Tokenize dataset theo chat template
     tokenized_ds = preprocess_dataset(raw_ds, tokenizer)
@@ -144,21 +158,39 @@ def train():
     # 4) TrainingArguments
     training_args = TrainingArguments(
         output_dir=train_config.output_dir,
+
+        # ----- TRAINING -----
         num_train_epochs=train_config.num_train_epochs,
-        per_device_train_batch_size=train_config.per_device_train_batch_size,
-        per_device_eval_batch_size=train_config.per_device_eval_batch_size,
-        gradient_accumulation_steps=train_config.gradient_accumulation_steps,
         learning_rate=train_config.learning_rate,
         weight_decay=train_config.weight_decay,
         warmup_ratio=train_config.warmup_ratio,
+
+        # ----- BATCH & GRADIENT -----
+        per_device_train_batch_size=train_config.per_device_train_batch_size,
+        per_device_eval_batch_size=train_config.per_device_eval_batch_size,
+        gradient_accumulation_steps=train_config.gradient_accumulation_steps,
+        max_grad_norm=1.0,
+
+        # ----- LOGGING / EVAL / SAVE -----
         logging_steps=train_config.logging_steps,
-        eval_strategy="steps",
+        evaluation_strategy="steps",
         eval_steps=train_config.eval_steps,
+        save_strategy="steps",
         save_steps=train_config.save_steps,
         save_total_limit=train_config.save_total_limit,
-        fp16=train_config.fp16,
-        bf16=train_config.bf16,
-        report_to="none",  # tắt wandb/mlflow
+        load_best_model_at_end=True,
+        metric_for_best_model="eval_loss",
+
+        # ----- REGULARIZATION -----
+        label_smoothing_factor=0.05,      # giảm overfit 
+        gradient_checkpointing=True,      # khớp với model.gradient_checkpointing_enable()
+
+        # ----- PRECISION & SCHEDULER -----
+        fp16=train_config.fp16,           # RTX 5080: True
+        bf16=train_config.bf16,           # False cho an toàn
+        lr_scheduler_type="cosine",
+
+        report_to="none",
     )
 
     # 5) Data collator
