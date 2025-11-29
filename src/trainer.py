@@ -15,13 +15,12 @@ from .config import train_config, paths
 from .data import load_vihealthqa
 
 
-# ================ 1. Format câu hỏi - trả lời ==================
+# ===================== 1. Format 1 sample =====================
 
 
 def format_example(example: Dict[str, Any]) -> str:
     """
-    Format 1 sample ViHealthQA thành prompt text cho decoder-only LM.
-    Bạn có thể chỉnh template này cho đẹp hơn nếu muốn.
+    Format 1 sample ViHealthQA thành text cho decoder-only LM.
     """
     q = (example["question"] or "").strip()
     a = (example["answer"] or "").strip()
@@ -35,13 +34,13 @@ def format_example(example: Dict[str, Any]) -> str:
     return text
 
 
-# ================ 2. Tokenization / Preprocessing ==============
+# ================== 2. Tokenization / Preprocess ==============
 
 
 def preprocess_dataset(raw_ds: DatasetDict, tokenizer) -> DatasetDict:
     """
     Tokenize toàn bộ ViHealthQA cho bài toán causal LM.
-    - padding = max_length để collator không bị lỗi shape
+    - padding = max_length để default collator không lỗi shape
     - labels = input_ids (decoder-only)
     """
 
@@ -55,7 +54,7 @@ def preprocess_dataset(raw_ds: DatasetDict, tokenizer) -> DatasetDict:
             texts,
             max_length=train_config.max_seq_length,
             truncation=True,
-            padding="max_length",  # QUAN TRỌNG: để default_collator không lỗi
+            padding="max_length",
         )
 
         # decoder-only: labels chính là input_ids
@@ -72,12 +71,12 @@ def preprocess_dataset(raw_ds: DatasetDict, tokenizer) -> DatasetDict:
     return tokenized_ds
 
 
-# ================ 3. Load tokenizer + model ====================
+# ================== 3. Load tokenizer + model =================
 
 
 def get_tokenizer_and_model():
     """
-    Load tokenizer + Qwen2.5-1.5B với dtype = bfloat16 cho RTX 5080.
+    Load tokenizer + Qwen2.5-1.5B với dtype = bfloat16.
     """
     print(f"🔹 Loading tokenizer & model: {train_config.model_name}")
     tokenizer = AutoTokenizer.from_pretrained(train_config.model_name)
@@ -88,8 +87,8 @@ def get_tokenizer_and_model():
 
     model = AutoModelForCausalLM.from_pretrained(
         train_config.model_name,
-        torch_dtype=torch.bfloat16,  # BF16 cho 5080
-        device_map=None,             # Trainer sẽ tự move sang GPU
+        torch_dtype=torch.bfloat16,  # BF16 cho GPU đời mới (5080)
+        device_map=None,             # Trainer sẽ tự move khi train
     )
 
     # Resize embedding nếu tokenizer có thêm token
@@ -98,38 +97,74 @@ def get_tokenizer_and_model():
     return tokenizer, model
 
 
-# ================ 4. Train loop với Trainer ====================
+# ======================= 4. Train loop ========================
 
 
 def train() -> None:
-    # Seed cố định
+    # Seed cố định cho reproducibility
     set_seed(train_config.seed)
     paths.make_dirs()
 
     # 1) Load dataset từ CSV local (đã export sẵn)
     raw_ds = load_vihealthqa()
 
+    print()
+    print(raw_ds)
+    print("\n📌 Sample train row:")
+    print(raw_ds["train"][0])
+
     # 2) Load tokenizer & model
     tokenizer, model = get_tokenizer_and_model()
 
-    # Bật gradient checkpointing để tiết kiệm VRAM
-    if hasattr(model, "gradient_checkpointing_enable"):
-        model.gradient_checkpointing_enable()
-    if hasattr(model.config, "use_cache"):
-        model.config.use_cache = False  # bắt buộc khi dùng gradient checkpointing
+    # ==== PRINT MODEL INFORMATION ====
+    print("\n================ MODEL INFORMATION ================\n")
+    print(f"📌 Model name: {train_config.model_name}")
 
-    # (Tuỳ chọn) thêm dropout nhẹ để giảm overfit
-    if hasattr(model.config, "dropout") and model.config.dropout == 0.0:
-        model.config.dropout = 0.1
-    if hasattr(model.config, "hidden_dropout") and model.config.hidden_dropout == 0.0:
-        model.config.hidden_dropout = 0.1
-    if hasattr(model.config, "attention_dropout") and model.config.attention_dropout == 0.0:
-        model.config.attention_dropout = 0.1
+    # Tổng số parameters
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    print(f"🧠 Total parameters: {total_params:,}")
+    print(f"🧩 Trainable parameters: {trainable_params:,}")
+    print(f"🔧 Frozen parameters: {total_params - trainable_params:,}")
+
+    # In ra các config quan trọng
+    cfg = model.config
+    print(f"\nHidden size: {cfg.hidden_size}")
+    print(f"Intermediate size: {getattr(cfg, 'intermediate_size', 'N/A')}")
+    print(f"Num attention heads: {cfg.num_attention_heads}")
+    print(f"Num layers (blocks): {cfg.num_hidden_layers}")
+    print(f"Vocab size: {cfg.vocab_size}")
+    print(f"Max sequence length: {cfg.max_position_embeddings}")
+
+    # Attention (RoPE, sliding window,…)
+    if hasattr(cfg, "rope_theta"):
+        print(f"RoPE theta: {cfg.rope_theta}")
+    if hasattr(cfg, "rope_scaling"):
+        print(f"RoPE scaling: {cfg.rope_scaling}")
+
+    # Dropout
+    if hasattr(cfg, "attention_dropout"):
+        print(f"Attention dropout: {cfg.attention_dropout}")
+    if hasattr(cfg, "hidden_dropout"):
+        print(f"Hidden dropout: {cfg.hidden_dropout}")
+    if hasattr(cfg, "dropout"):
+        print(f"General dropout: {cfg.dropout}")
+
+    # Ki architecture (Qwen2.5 support)
+    if hasattr(cfg, "use_sliding_window"):
+        print(f"Sliding window: {cfg.use_sliding_window}")
+    if hasattr(cfg, "sliding_window"):
+        print(f"Sliding window size: {cfg.sliding_window}")
+    if hasattr(cfg, "attention_bias"):
+        print(f"Attention bias: {cfg.attention_bias}")
+
+    print("\n====================================================\n")
 
     # 3) Tokenize dataset
     tokenized_ds = preprocess_dataset(raw_ds, tokenizer)
 
-    # 4) TrainingArguments (API mới của HF, dùng eval_strategy)
+    # 4) TrainingArguments
     training_args = TrainingArguments(
         output_dir=train_config.output_dir,
 
@@ -147,10 +182,9 @@ def train() -> None:
 
         # ----- LOGGING / EVAL / SAVE -----
         logging_steps=train_config.logging_steps,
-        eval_strategy="steps",                 # transformers mới
+        eval_strategy="steps",                     # transformers mới
         eval_steps=train_config.eval_steps,
-        save_strategy="steps",
-        save_steps=train_config.save_steps,
+        save_strategy="epoch",                     # lưu theo epoch
         save_total_limit=train_config.save_total_limit,
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
@@ -163,7 +197,7 @@ def train() -> None:
         # ----- KHÁC -----
         gradient_checkpointing=True,
         lr_scheduler_type="cosine",
-        report_to="none",
+        report_to="none",                          # không log ra wandb, tb
     )
 
     # 5) Trainer
@@ -172,14 +206,24 @@ def train() -> None:
         args=training_args,
         train_dataset=tokenized_ds["train"],
         eval_dataset=tokenized_ds["validation"],
-        tokenizer=tokenizer,
-        # data_collator = None => dùng default (ổn vì đã padding sẵn)
+        tokenizer=tokenizer,   # Warning deprecate nhưng vẫn chạy được
     )
 
     print("🚀 Start training decoder-only model on ViHealthQA…")
     trainer.train()
-    print("✅ Training finished!")
-    print(f"Best model saved to: {training_args.output_dir}")
+    print("🚀 Training finished!")
+    print(f"Best model (by eval_loss) saved under: {training_args.output_dir}")
+
+    # 6) Đánh giá trên test set (giống pipeline encode-decode trước)
+    print("\n[INFO] Evaluating on test set...")
+    test_metrics = trainer.evaluate(
+        tokenized_ds["test"],
+        metric_key_prefix="test",
+    )
+
+    print("[RESULT] Test metrics:")
+    for k, v in test_metrics.items():
+        print(f"  {k}: {v}")
 
 
 def main() -> None:
