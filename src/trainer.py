@@ -183,7 +183,7 @@ def train() -> None:
         # ----- LOGGING / EVAL / SAVE -----
         logging_steps=train_config.logging_steps,
     
-        evaluation_strategy="epoch",        # ✅ ĐÁNH GIÁ THEO EPOCH
+        eval_strategy="epoch",        # ✅ ĐÁNH GIÁ THEO EPOCH
         save_strategy="epoch",              # ✅ LƯU THEO EPOCH
         save_total_limit=train_config.save_total_limit,
     
