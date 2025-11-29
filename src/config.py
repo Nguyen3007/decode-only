@@ -57,8 +57,9 @@ class TrainingConfig:
     save_steps: int = 200
     save_total_limit: int = 2
 
-    fp16: bool = True   # phù hợp nhất cho 5080
-    bf16: bool = False
+    fp16: bool = False
+    bf16: bool = True
+    max_grad_norm: float = 0.0
 
     seed: int = 42
 
