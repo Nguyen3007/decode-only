@@ -59,7 +59,6 @@ class TrainingConfig:
 
     fp16: bool = False
     bf16: bool = True
-    max_grad_norm: float = 0.0
 
     seed: int = 42
 
