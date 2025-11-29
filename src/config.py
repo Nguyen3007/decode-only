@@ -43,7 +43,7 @@ class TrainingConfig:
     gradient_accumulation_steps: int = 16  # => effective batch ~16
 
     # ----- Training -----
-    num_train_epochs: int = 3
+    num_train_epochs: int = 1
     learning_rate: float = 5e-6   # giảm nhẹ để tránh nổ gradient
     weight_decay: float = 0.01
     warmup_ratio: float = 0.03
