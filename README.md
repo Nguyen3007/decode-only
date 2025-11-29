@@ -1,18 +1,6 @@
 Dự án này thực hiện Supervised Fine-Tuning (SFT) mô hình Qwen/Qwen2.5-1.5B-Instruct theo dạng decoder-only causal language modeling trên tập dữ liệu ViHealthQA (Vietnamese Health Q&A).
 
-Project được thiết kế tối giản, dễ huấn luyện trên GPU (Vast.ai, Colab Pro, Kaggle), với kiến trúc rõ ràng và dễ mở rộng.
-
-📁 Project Structure
-decode-only/
-│
-├── src/
-│   ├── config.py        # Cấu hình training + đường dẫn
-│   ├── data.py          # Load và kiểm tra dataset ViHealthQA
-│   ├── trainer.py       # Fine-tune Qwen2.5-1.5B theo kiểu causal LM
-│   └── __init__.py
-│
-├── requirements.txt     # Các thư viện cần thiết
-└── README.md
+Project được thiết kế tối giản, dễ huấn luyện trên GPU (Vast.ai) với kiến trúc rõ ràng và dễ mở rộng.
 
 📦 Dataset: ViHealthQA
 
@@ -21,7 +9,6 @@ tarudesu/ViHealthQA
 (Nội dung: câu hỏi – trả lời y tế tiếng Việt, 3 split: train / validation / test)
 
 Ví dụ 1 mẫu:
-
 {
   "id": 1,
   "question": "Đang chích ngừa viêm gan B có chích ngừa Covid-19 được không?",
@@ -49,7 +36,6 @@ Output sẽ hiển thị tổng số mẫu và 1 sample để kiểm tra.
 Huấn luyện mô hình Qwen2.5-1.5B trên ViHealthQA:
 
 python -m src.trainer
-
 
 trainer.py sẽ tự động:
 
