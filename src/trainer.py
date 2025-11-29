@@ -158,40 +158,46 @@ def train():
     # 4) TrainingArguments
     training_args = TrainingArguments(
         output_dir=train_config.output_dir,
-
+    
         # ----- TRAINING -----
         num_train_epochs=train_config.num_train_epochs,
         learning_rate=train_config.learning_rate,
-        weight_decay=train_config.weight_decay,
         warmup_ratio=train_config.warmup_ratio,
-
+        weight_decay=train_config.weight_decay,
+    
         # ----- BATCH & GRADIENT -----
         per_device_train_batch_size=train_config.per_device_train_batch_size,
         per_device_eval_batch_size=train_config.per_device_eval_batch_size,
         gradient_accumulation_steps=train_config.gradient_accumulation_steps,
         max_grad_norm=1.0,
-
+    
         # ----- LOGGING / EVAL / SAVE -----
         logging_steps=train_config.logging_steps,
-        evaluation_strategy="steps",
+        eval_strategy="steps",              # 🔥 thay vì evaluation_strategy
         eval_steps=train_config.eval_steps,
         save_strategy="steps",
         save_steps=train_config.save_steps,
         save_total_limit=train_config.save_total_limit,
+    
         load_best_model_at_end=True,
-        metric_for_best_model="eval_loss",
-
+        best_model_metric="eval_loss",      # 🔥 thay metric_for_best_model
+        greater_is_better=False,            # để loss càng thấp càng tốt
+    
+        # ----- PRECISION -----
+        fp16=train_config.fp16,
+        bf16=train_config.bf16,
+    
         # ----- REGULARIZATION -----
-        label_smoothing_factor=0.05,      # giảm overfit 
-        gradient_checkpointing=True,      # khớp với model.gradient_checkpointing_enable()
-
-        # ----- PRECISION & SCHEDULER -----
-        fp16=train_config.fp16,           # RTX 5080: True
-        bf16=train_config.bf16,           # False cho an toàn
+        label_smoothing_factor=0.05,
+        gradient_checkpointing=True,
+    
+        # ----- SCHEDULER -----
         lr_scheduler_type="cosine",
-
+    
+        # ----- No external logging -----
         report_to="none",
-    )
+)
+
 
     # 5) Data collator
     collator = default_data_collator
