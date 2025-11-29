@@ -167,37 +167,38 @@ def train() -> None:
     # 4) TrainingArguments
     training_args = TrainingArguments(
         output_dir=train_config.output_dir,
-
+    
         # ----- TRAINING -----
         num_train_epochs=train_config.num_train_epochs,
         learning_rate=train_config.learning_rate,
         warmup_ratio=train_config.warmup_ratio,
         weight_decay=train_config.weight_decay,
-
+    
         # ----- BATCH & GRADIENT -----
         per_device_train_batch_size=train_config.per_device_train_batch_size,
         per_device_eval_batch_size=train_config.per_device_eval_batch_size,
         gradient_accumulation_steps=train_config.gradient_accumulation_steps,
-        max_grad_norm=1.0,  # clip grad để tránh nổ
-
+        max_grad_norm=1.0,
+    
         # ----- LOGGING / EVAL / SAVE -----
         logging_steps=train_config.logging_steps,
-        eval_strategy="steps",                     # transformers mới
-        eval_steps=train_config.eval_steps,
-        save_strategy="epoch",                     # lưu theo epoch
+    
+        evaluation_strategy="epoch",        # ✅ ĐÁNH GIÁ THEO EPOCH
+        save_strategy="epoch",              # ✅ LƯU THEO EPOCH
         save_total_limit=train_config.save_total_limit,
+    
         load_best_model_at_end=True,
         metric_for_best_model="eval_loss",
         greater_is_better=False,
-
+    
         # ----- PRECISION -----
         fp16=False,
         bf16=True,
-
+    
         # ----- KHÁC -----
         gradient_checkpointing=True,
         lr_scheduler_type="cosine",
-        report_to="none",                          # không log ra wandb, tb
+        report_to="none",
     )
 
     # 5) Trainer
