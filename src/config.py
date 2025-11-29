@@ -35,46 +35,35 @@ paths = PathConfig()
 
 @dataclass
 class TrainingConfig:
-    """
-    Cấu hình chính cho bài toán decoder-only SFT trên ViHealthQA.
-    """
-
-    # ----- Model & Dataset -----
     model_name: str = "Qwen/Qwen2.5-1.5B-Instruct"
     dataset_name: str = "tarudesu/ViHealthQA"
 
-    # ----- Tokenization -----
-    max_seq_length: int = 1024  # có thể giảm nếu thiếu VRAM
+    # 16GB VRAM → không nên 1024
+    max_seq_length: int = 768
 
-    # ----- Batch & Gradient -----
-    per_device_train_batch_size: int = 2
-    per_device_eval_batch_size: int = 2
-    gradient_accumulation_steps: int = 8  # 2 * 8 = 16 effective batch size
+    per_device_train_batch_size: int = 1
+    per_device_eval_batch_size: int = 1
 
-    # ----- Training -----
-    num_train_epochs: int = 3
+    # tăng accumulation để bù batch size
+    gradient_accumulation_steps: int = 16
+
     learning_rate: float = 1e-5
     weight_decay: float = 0.01
     warmup_ratio: float = 0.03
+    num_train_epochs: int = 3
 
-    # ----- Logging & Save -----
-    logging_steps: int = 50
-    eval_steps: int = 1000
-    save_steps: int = 1000
+    logging_steps: int = 20
+    eval_steps: int = 200
+    save_steps: int = 200
     save_total_limit: int = 2
 
-    # ----- Precision -----
-    fp16: bool = True   # nếu GPU hỗ trợ
-    bf16: bool = False  # bật nếu GPU hỗ trợ bf16 tốt hơn
+    fp16: bool = True   # phù hợp nhất cho 5080
+    bf16: bool = False
 
-    # ----- Misc -----
     seed: int = 42
 
     @property
-    def output_dir(self) -> str:
-        """
-        Nơi lưu checkpoint của mô hình decoder-only ViHealthQA.
-        """
+    def output_dir(self):
         return str(paths.checkpoints_dir / "qwen2_5_1_5b_vihealthqa")
 
 
