@@ -14,28 +14,24 @@ from datasets import DatasetDict, load_dataset
 from .config import train_config, paths
 
 
-def load_vihealthqa(
-    cache_dir: Optional[str] = None,
-) -> DatasetDict:
-    """
-    Load full ViHealthQA từ HuggingFace Datasets.
-
-    Dataset có 3 split: train / validation / test
-    với các cột chính: id, question, answer, link.
-    """
+def load_vihealthqa(cache_dir=None):
     paths.make_dirs()
+    data_dir = paths.data_dir / "raw"
 
-    print(f"🔹 Loading dataset: {train_config.dataset_name}")
-    ds = load_dataset(
-        train_config.dataset_name,
-        cache_dir=cache_dir,
-        # KHÔNG còn dùng trust_remote_code ở đây
-    )
+    train_path = str(data_dir / "train.csv")
+    val_path   = str(data_dir / "val.csv")
+    test_path  = str(data_dir / "test.csv")
+
+    print("🔹 Using LOCAL CSV instead of HuggingFace downloads.")
+
+    ds = DatasetDict({
+        "train": load_dataset("csv", data_files=train_path)["train"],
+        "validation": load_dataset("csv", data_files=val_path)["validation"],
+        "test": load_dataset("csv", data_files=test_path)["test"],
+    })
 
     print(ds)
-    print("\n📌 Sample train row:")
-    print(ds["train"][0])
-
+    print("\n📌 Sample train row:", ds["train"][0])
     return ds
 
 
